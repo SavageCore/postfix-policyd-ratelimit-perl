@@ -23,6 +23,7 @@ The original forked code from [onlime/ratelimit-policyd](https://github.com/onli
 - installer now creates RDMS user and tables
 - added seconds option (see $secondscount in daemon.pl to control how frequently)
 - systemd startup scripts for Fedora (and probably CentOS) compatibility
+- daemon will start on boot
 
 ## Installation
 
@@ -70,14 +71,14 @@ my $sql_insertquota = "INSERT INTO $db_table ($db_wherecol, $db_quotacol, $db_ta
 ### END OF CONFIGURATION SECTION
 ```
 
-**Take care of using a port higher than 1024 to run the script as non-root (our init script runs it as user "postfix").**
+**Take care of using a port higher than 1024 to run the script as non-root (our service runs it as user "postfix").**
 
 In most cases, the default configuration should be fine.
 
-Now, start the daemon:
+Now, restart the daemon (if you made any changes to configuration):
 
 ```bash
-$ systemctl start ratelimit-policyd
+$ systemctl restart ratelimit-policyd
 ```
 
 ## Testing
@@ -130,7 +131,7 @@ smtpd_data_restrictions =
 If you're sure that ratelimit-policyd is really running, restart Postfix:
 
 ```
-$ service postfix restart
+$ systemctl restart postfix
 ```
 
 ## Logging
