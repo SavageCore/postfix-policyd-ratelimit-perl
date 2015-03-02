@@ -75,7 +75,7 @@ while (1) {
 	while($i < $thread_count) {
 		#$threads[$i] = threads->new(\&start_thr)->detach();
 		threads->new(\&start_thr);
-		logger("Started thead num $i.");
+		logger("Started thread num $i.");
 		$i++;
 	}
 	while(1) {
