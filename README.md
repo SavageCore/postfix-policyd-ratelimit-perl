@@ -21,7 +21,7 @@ ratelimit-policyd will never be as feature-rich as other policy daemons. Its mai
 The original forked code from [onlime/ratelimit-policyd](https://github.com/onlime/ratelimit-policyd) was improved with the following new features:
 
 - installer now creates RDMS user and tables
-- added seconds option (see $secondscount in daemon.pl to control how frequently)
+- added seconds option (see ``$secondscount`` in ``daemon.pl`` to control how frequently)
 - systemd startup scripts for Fedora (and probably CentOS) compatibility
 - daemon will start on boot
 
