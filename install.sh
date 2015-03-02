@@ -32,6 +32,9 @@ mysql -u$RDMS_USER -p$RDMS_PASS -e "GRANT USAGE ON *.* TO policyd@'localhost' ID
 mysql -u$RDMS_USER -p$RDMS_PASS -e "GRANT SELECT, INSERT, UPDATE, DELETE ON policyd.* TO policyd@'localhost'";
 sed -i "s/RDMS_PASS_REPLACE/$PASSWORD/g" $DIR/daemon.pl
 
+# install required Perl modules
+sudo yum install perl-Switch
+
 # enable startup on boot and start now
 systemctl start ratelimit-policyd.service
 systemctl enable ratelimit-policyd.service

@@ -34,8 +34,12 @@ $ cd /opt/
 $ git clone https://github.com/SavageCore/ratelimit-policyd.git ratelimit-policyd
 $ cd ratelimit-policyd
 $ chmod +x install.sh
-$ ./install.sh
+$ ./install.sh RDMS_USER RDMS_PASS
 ```
+
+RDMS_USER and RDMS_PASS above needs the following permissions:
+
+``CREATE`` ``GRANT`` ``CREATE VIEW`` ``CREATE USER`` ``FILE``
 
 Adjust configuration options in ```daemon.pl```:
 
