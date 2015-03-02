@@ -8,7 +8,5 @@
 	notifempty
 	create 644 postfix postfix
 	sharedscripts
-	postrotate
-		invoke-rc.d ratelimit-policyd restart 2>/dev/null >/dev/null || true
 	endscript
 }

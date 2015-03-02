@@ -2,19 +2,15 @@
 
 A Sender rate limit policy daemon for Postfix.
 
-Copyright (c) Onlime Webhosting (http://www.onlime.ch)
-
 ## Credits
 
-This project was forked from [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd). All credits go to [Simone Caruso](http://www.simonecaruso.com).
+This project was forked from [onlime/ratelimit-policyd](https://github.com/onlime/ratelimit-policyd) with the intention to create a fully automated install script targeted towards Fedora whilst adding features as we see fit. All credits go to [Simone Caruso](http://www.simonecaruso.com) for his original work ([bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd)).
 
 ## Purpose
 
-This small Perl daemon **limits the number of emails** sent by users through your Postfix server, and store message quota in a RDMS system (MySQL). It counts the number of recipients for each sent email. You can setup a send rate per user or sender domain (via SASL username) on **daily/weekly/monthly** basis.
+This small Perl daemon **limits the number of emails** sent by users through your Postfix server, and stores message quota in a RDMS system (MySQL). It counts the number of recipients for each sent email. You can setup a send rate per user or sender domain (via SASL username) on **seconds-ly/hourly/daily/weekly/monthly** basis.
 
 **The program uses the Postfix policy delegation protocol to control access to the mail system before a message has been accepted (please visit [SMTPD_POLICY_README.html](http://www.postfix.org/SMTPD_POLICY_README.html) for more information).**
-
-For a long time we were using Postfix-Policyd v1 (the old 1.82) in production instead, but that project was no longer maintained and the successor [PolicyD v2 (codename "cluebringer")](http://wiki.policyd.org/) got overly complex and badly documented. Also, PolicyD seems to have been abandoned since 2013.
 
 ratelimit-policyd will never be as feature-rich as other policy daemons. Its main purpose is to limit the number of emails per account, nothing more and nothing less. We focus on performance and simplicity.
 
@@ -22,20 +18,11 @@ ratelimit-policyd will never be as feature-rich as other policy daemons. Its mai
 
 ## New Features
 
-The original forked code from [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd) was improved with the following new features:
+The original forked code from [onlime/ratelimit-policyd](https://github.com/onlime/ratelimit-policyd) was improved with the following new features:
 
-- automatically inserts new SASL-users (upon first email sent)
-- Debian default init.d startscript
-- added installer and documentation
-- bugfix: weekly mode did not work (expiry date was not correctly calculated)
-- bugfix: counters did not get reset after expiry
-- additional information in DB: updated timestamp
-- added view_ratelimit in DB to make Unix timestamps human readable (default datetime format)
-- syslog messaging (similar to Postfix-policyd) including all relevant information and counter/quota
-- more detailed logging
-- added logrotation script for /var/log/ratelimit-policyd.log
-- added flag in ratelimit DB table to make specific quotas persistent (all others will get reset to default after expiry)
-- continue raising counter even in over quota state
+- installer now creates RDMS user and tables
+- added seconds option (see $secondscount in daemon.pl to control how frequently)
+- systemd startup scripts for Fedora (and probably CentOS) compatibility
 
 ## Installation
 
@@ -43,21 +30,10 @@ Recommended installation:
 
 ```bash
 $ cd /opt/
-$ git clone https://github.com/onlime/ratelimit-policyd.git ratelimit-policyd
+$ git clone https://github.com/SavageCore/ratelimit-policyd.git ratelimit-policyd
 $ cd ratelimit-policyd
 $ chmod +x install.sh
 $ ./install.sh
-```
-
-Create the DB schema and user:
-
-```bash
-$ mysql -u root -p < mysql-schema.sql
-```
-
-```sql
-GRANT USAGE ON *.* TO policyd@'localhost' IDENTIFIED BY '********';
-GRANT SELECT, INSERT, UPDATE, DELETE ON policyd.* TO policyd@'localhost';
 ```
 
 Adjust configuration options in ```daemon.pl```:
@@ -73,33 +49,35 @@ my $SYSLOG_FACILITY = LOG_MAIL;
 chomp( my $vhost_dir = `pwd`);
 my $port            = 10032;
 my $listen_address  = '127.0.0.1'; # or '0.0.0.0'
-my $s_key_type      = 'email'; # domain or email
+my $s_key_type      = 'domain'; # domain or email
 my $dsn             = "DBI:mysql:policyd:127.0.0.1";
 my $db_user         = 'policyd';
-my $db_passwd       = '************';
+my $db_passwd       = 'RDMS_PASS_REPLACE'; #DO NOT TOUCH
 my $db_table        = 'ratelimit';
 my $db_quotacol     = 'quota';
 my $db_tallycol     = 'used';
 my $db_updatedcol   = 'updated';
 my $db_expirycol    = 'expiry';
 my $db_wherecol     = 'sender';
-my $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
+my $db_persistcol   = 'persist';
+my $deltaconf       = 'daily'; # seconds|hourly|daily|weekly|monthly
+my $secondscount    = 15; # how often to check in seconds if set above
 my $defaultquota    = 1000;
-my $sql_getquota    = "SELECT $db_quotacol, $db_tallycol, $db_expirycol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
+my $sql_getquota    = "SELECT $db_quotacol, $db_tallycol, $db_expirycol, $db_persistcol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
-my $sql_updatereset = "UPDATE $db_table SET $db_tallycol = ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
+my $sql_updatereset = "UPDATE $db_table SET $db_quotacol = ?, $db_tallycol = ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
 my $sql_insertquota = "INSERT INTO $db_table ($db_wherecol, $db_quotacol, $db_tallycol, $db_expirycol) VALUES (?, ?, ?, ?)";
 ### END OF CONFIGURATION SECTION
 ```
 
 **Take care of using a port higher than 1024 to run the script as non-root (our init script runs it as user "postfix").**
 
-In most cases, the default configuration should be fine. Just don't forget to paste your DB password in ``$db_password``.
+In most cases, the default configuration should be fine.
 
 Now, start the daemon:
 
 ```bash
-$ service ratelimit-policyd start
+$ systemctl start ratelimit-policyd
 ```
 
 ## Testing
@@ -108,33 +86,25 @@ Check if the daemon is really running:
 
 ```bash
 $ netstat -tl | grep 10032
-tcp        0      0 localhost.localdo:10032 *:*                     LISTEN
-
-$ cat /var/run/ratelimit-policyd.pid
-30566
+tcp        0      0 localhost:10032         0.0.0.0:*               LISTEN
 
 $ ps aux | grep daemon.pl
-postfix  30566  0.4  0.1 176264 19304 ?        Ssl  14:37   0:00 /opt/send_rate_policyd/daemon.pl
+postfix     15544  0.2  0.3 508360 24856 ?        Ssl  11:15   0:00 /opt/ratelimit-policyd/daemon.pl > /dev/null 2>&1 &
 
 $ pstree -p | grep ratelimit
-init(1)-+-/opt/ratelimit-(11298)-+-{/opt/ratelimit-}(11300)
-        |                        |-{/opt/ratelimit-}(11301)
-        |                        |-{/opt/ratelimit-}(11302)
-        |                        |-{/opt/ratelimit-}(14834)
-        |                        |-{/opt/ratelimit-}(15001)
-        |                        |-{/opt/ratelimit-}(15027)
-        |                        |-{/opt/ratelimit-}(15058)
-        |                        `-{/opt/ratelimit-}(15065)
+systemd(1)-+-/opt/ratelimit-(15544)-+-{/opt/ratelimit-}(15546)
+           |                        |-{/opt/ratelimit-}(15547)
+           |                        `-{/opt/ratelimit-}(15548)
 
 ```
 
 Print the cache content (in shared memory) with update statistics:
 
 ```bash
-$ service ratelimit-policyd status
+$ /opt/ratelimit-policyd/daemon.pl printshm
 Printing shm:
-Domain		:	Quota	:	Used	:	Expire
-Threads running: 6, Threads waiting: 2
+Domain          :       Quota   :       Used    :       Expire
+Threads running: 3, Threads waiting: 0
 ```
 
 ## Postfix Configuration
@@ -165,7 +135,7 @@ $ service postfix restart
 
 ## Logging
 
-Detailed logging is written to ``/var/log/ratelimit-policyd.log```. In addition, the most important information including the counter status is written to syslog:
+Detailed logging is written to ``/var/log/ratelimit-policyd.log``. In addition, the most important information including the counter status is written to syslog:
 
 ```
 $ tail -f /var/log/ratelimit-policyd.log 

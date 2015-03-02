@@ -1,0 +1,14 @@
+[Unit]
+Description=SMTP Rate Limit Policy Daemon
+
+[Service]
+Type=simple
+User=postfix
+Group=postfix
+ExecStart=/usr/bin/perl /opt/ratelimit-policyd/daemon.pl > /dev/null 2>&1 &
+ExecRestart=pkill /opt/ratelimit-policyd/daemon.pl && /usr/bin/perl /opt/ratelimit-policyd/daemon.pl > /dev/null 2>&1 &
+ExecStop=pkill /opt/ratelimit-policyd/daemon.pl
+ExecStatus=/usr/bin/perl /opt/ratelimit-policyd/daemon.pl printshm
+
+[Install]
+WantedBy=multi-user.target

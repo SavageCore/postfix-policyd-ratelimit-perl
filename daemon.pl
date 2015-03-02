@@ -20,10 +20,10 @@ my $SYSLOG_FACILITY = LOG_MAIL;
 chomp( my $vhost_dir = `pwd`);
 my $port            = 10032;
 my $listen_address  = '127.0.0.1'; # or '0.0.0.0'
-my $s_key_type      = 'email'; # domain or email
+my $s_key_type      = 'domain'; # domain or email
 my $dsn             = "DBI:mysql:policyd:127.0.0.1";
 my $db_user         = 'policyd';
-my $db_passwd       = '************';
+my $db_passwd       = 'RDMS_PASS_REPLACE'; #DO NOT TOUCH
 my $db_table        = 'ratelimit';
 my $db_quotacol     = 'quota';
 my $db_tallycol     = 'used';
@@ -31,7 +31,8 @@ my $db_updatedcol   = 'updated';
 my $db_expirycol    = 'expiry';
 my $db_wherecol     = 'sender';
 my $db_persistcol   = 'persist';
-my $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
+my $deltaconf       = 'daily'; # seconds|hourly|daily|weekly|monthly
+my $secondscount    = 15; # how often to check in seconds if set above
 my $defaultquota    = 1000;
 my $sql_getquota    = "SELECT $db_quotacol, $db_tallycol, $db_expirycol, $db_persistcol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_updatedcol = NOW(), $db_expirycol = ? WHERE $db_wherecol = ?";
@@ -395,6 +396,8 @@ sub calcexpire {
 		$exp = mktime (0, 0, 0, ++$mday, $mon, $year);
 	} elsif ($arg eq 'hourly') {
 		$exp = mktime (0, $min, ++$hour, $mday, $mon, $year);
+	} elsif ($arg eq 'seconds') {
+		$exp = mktime ($sec+$secondscount, $min, $hour, $mday, $mon, $year);
 	} else {
 		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
 	}
