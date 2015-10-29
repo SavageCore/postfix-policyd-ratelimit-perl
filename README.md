@@ -1,4 +1,4 @@
-# ratelimit-policyd
+# postfix-policyd-ratelimit-perl
 
 A Sender rate limit policy daemon for Postfix.
 
